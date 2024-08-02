@@ -1,2 +1,2 @@
-print("hello")
-print("added")
+from rich import print
+print("hello [red]pookie[/red]")
