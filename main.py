@@ -5,19 +5,10 @@ from rich import print
 from rich.console import Console
 from rich.table import Table
 from rich import box
+import time
 
 logged_user_phoneNumber = ""
 logged_user_fullName = ""
-
-
-# this method searches for username and password of users
-def user_login(username, password):
-    with open("information.txt", "r") as infoFile:
-        csv_reader = csv.reader(infoFile)
-        for line in csv_reader:
-            if line[2] == username and line[3] == password:
-                return True
-        return False
 
 
 # this method checks if new username exist in file or not
@@ -40,12 +31,14 @@ def check_number_validity(number):
         return True
 
 
+# method for write user Information into file
 def add_info_to_file(name, number, username, password):
     with open("information.txt", "a") as infoFile:
         new_info = "\n" + name + "," + number + "," + username + "," + password
         infoFile.write(new_info)
 
 
+# gets a username and return full name and number ( they will be used for save reserved times in files)
 def find_user_info(username):
     global logged_user_fullName, logged_user_phoneNumber
     with open("information.txt", "r") as infoFile:
@@ -56,42 +49,136 @@ def find_user_info(username):
                 logged_user_phoneNumber = line[1]
 
 
-# this is the method for first list options that user will see when run the code and can choose login / sign up or exit
-def first_menu():
-    questions = [
-        {
-            'type': 'list',
-            'name': 'option',
-            'message': 'Please choose an option:',
-            'choices': [
-                'Login',
-                'Sign up',
-                'Exit',
-            ]
-        }
-    ]
-    answers = prompt(questions)
-    choice = answers['option']
-
-    if choice == 'Login':
-        clear_terminal()
-        login_page()
-    elif choice == 'Sign up':
-        clear_terminal()
-        signup_page()
-    elif choice == 'Exit':
-        print('Exiting...')
-        return
-
-
 # this method will execute when admin logged in
 def admin_main_page():
     pass
 
 
+# this method gets a time and delete it from free times  ( when a time get reserved )
+def delete_time_from_file(reserved_time):
+    with open("freeTimes.txt", "r") as freeTimes:
+        lines = freeTimes.readlines()
+    with open("freeTimes.txt", "w") as freeTimes:
+        for line in lines:
+            if line.strip("\n") != reserved_time:
+                freeTimes.write(line)
+
+
+# will execute when user wants to reserve a time ; gets a time , add it to reserved times and remove it from free times
+def user_reserving_time():
+    available_times = []
+    with open("freeTimes.txt", "r") as timesFile:
+        csv_reader = csv.reader(timesFile)
+        next(csv_reader)
+        for line in csv_reader:
+            available_times.append(",".join(line))
+    available_times.append("<- back")
+    options = [
+        {
+            'type': 'list',
+            'name': 'option',
+            'message': 'which time you want to reserve ? ',
+            'choices': available_times
+        }
+    ]
+    answers = prompt(options)
+    choice = answers['option']
+    if choice == "<- back":
+        user_main_page()
+    else:
+        print("your choice is : ", choice)
+        submiting = [
+            {
+                'type': 'list',
+                'name': 'option',
+                'message': 'are you sure about reserving this time ? ',
+                'choices': [
+                    'Yes',
+                    'No'
+                ]
+            }
+        ]
+        answer = prompt(submiting)
+        choiced = answer['option']
+        if choiced == 'No':
+            time.sleep(20)
+            user_available_times()
+        elif choiced == 'Yes':
+            global logged_user_phoneNumber
+            with open("reservedTimes.txt", "a") as reserved_times:
+                new_line = "\n" + logged_user_phoneNumber + "," + choice
+                reserved_times.write(new_line)
+            print("[bold green] Time reserved!..")
+            delete_time_from_file(choice)
+            time.sleep(20)
+            user_main_page()
+
+
+# this method will show the available times to the user if she/he wants to reserve direct him to reserve method
+def user_available_times():
+    clear_terminal()
+    available_times_tabel = Table(expand=True, style="cyan", box=box.DOUBLE_EDGE)
+    available_times_tabel.add_column("Date", justify="center", style="yellow2")
+    available_times_tabel.add_column("Time", justify="center", style="green1")
+    available_times_tabel.add_column("Fee", justify="center", style="orchid1")
+    with open("freeTimes.txt", "r") as timesFile:
+        csv_reader = csv.reader(timesFile)
+        next(csv_reader)
+        for line in csv_reader:
+            available_times_tabel.add_row(line[0], line[1], line[2])
+    console = Console()
+    console.print(available_times_tabel)
+    options = [
+        {
+            'type': 'list',
+            'name': 'option',
+            'message': '  ',
+            'choices': [
+                'reserve time',
+                '<- back',
+            ]
+        }
+    ]
+    answers = prompt(options)
+    choice = answers['option']
+    if choice == 'reserve time':
+        user_reserving_time()
+    elif choice == '<- back':
+        user_main_page()
+
+
 # this method will execute when user logged in
 def user_main_page():
-    pass
+    clear_terminal()
+    global logged_user_fullName
+    user_home_page = Table(expand=True, style="cyan", box=box.DOUBLE_EDGE)
+    user_home_page.add_column(f"WELCOME {logged_user_fullName}", justify="center", style="magenta3")
+    user_home_page.add_row("Choose one of the options below")
+    console = Console()
+    console.print(user_home_page)
+    options = [
+        {
+            'type': 'list',
+            'name': 'option',
+            'message': 'Please choose an option:',
+            'choices': [
+                'available times',
+                'my reserved times',
+                'change information',
+                'Exit',
+            ]
+        }
+    ]
+    answers = prompt(options)
+    choice = answers['option']
+    if choice == 'available times':
+        user_available_times()
+    elif choice == 'my reserved times':
+        user_reserved_times()
+    elif choice == 'change information':
+        user_change_info()
+    elif choice == 'Exit':
+        print("Exiting...")
 
 
 # gets user inputs for sign up and return them
@@ -139,6 +226,16 @@ def signup_page():
     login_page()
 
 
+# this method searches for username and password of users
+def user_login(username, password):
+    with open("information.txt", "r") as infoFile:
+        csv_reader = csv.reader(infoFile)
+        for line in csv_reader:
+            if line[2] == username and line[3] == password:
+                return True
+        return False
+
+
 # this method will execute when user choose login from first menu
 def login_page():
     console = Console()
@@ -163,11 +260,39 @@ def login_page():
     else:
         is_user = user_login(user_inputs["username"], user_inputs["password"])
         if is_user:
-            user_main_page()
             find_user_info(user_inputs["username"])
+            user_main_page()
         else:
             # add options here
             print("not found")
+
+
+# this is the method for first list options that user will see when run the code and can choose login / sign up or exit
+def first_menu():
+    questions = [
+        {
+            'type': 'list',
+            'name': 'option',
+            'message': 'Please choose an option:',
+            'choices': [
+                'Login',
+                'Sign up',
+                'Exit',
+            ]
+        }
+    ]
+    answers = prompt(questions)
+    choice = answers['option']
+
+    if choice == 'Login':
+        clear_terminal()
+        login_page()
+    elif choice == 'Sign up':
+        clear_terminal()
+        signup_page()
+    elif choice == 'Exit':
+        print('Exiting...')
+        return
 
 
 def main():
