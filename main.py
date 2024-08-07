@@ -1,11 +1,19 @@
 import csv
-from usedMethods import clear_terminal
 from PyInquirer import prompt
 from rich import print
 from rich.console import Console
 from rich.table import Table
 from rich import box
 import time
+import os
+
+
+def clear_terminal():
+    if os.name == "nt":
+        os.system("cls")
+    else:
+        os.system("clear")
+
 
 logged_user_phoneNumber = ""
 logged_user_fullName = ""
@@ -52,6 +60,188 @@ def find_user_info(username):
 # this method will execute when admin logged in
 def admin_main_page():
     pass
+
+
+# if user wants to change password this method runs and change users password in file
+def user_change_password():
+    console = Console()
+    password = console.input("[italic violet] Enter new password : ")
+    re_enter_password = console.input("[italic violet] re-enter new password : ")
+    if password == re_enter_password:
+        global logged_user_phoneNumber
+        new_info = ""
+        with open("information.txt", "r") as infoFile:
+            csv_reader = csv.reader(infoFile)
+            for line in csv_reader:
+                if line[1] != logged_user_phoneNumber:
+                    new_info += ','.join(line) + "\n"
+                elif line[1] == logged_user_phoneNumber:
+                    new_info += line[0] + "," + line[1] + "," + line[2] + "," + password + "\n"
+        with open("information.txt", "w") as newInfoFile:
+            newInfoFile.write(new_info)
+        print("[bold green]password changed successfully. redirecting... ")
+        time.sleep(3)
+        user_main_page()
+    else:
+        console.print("[bold red] passwords dont match try again")
+        user_change_password()
+
+
+# if user wants to change username , this gets a new username and if it valid , change the username in file
+def user_change_username():
+    console = Console()
+    new_username = console.input("[italic violet] Enter new Username : ")
+    submiting = [
+        {
+            'type': 'list',
+            'name': 'option',
+            'message': 'are you sure you want to change username ? ',
+            'choices': [
+                'Yes',
+                'No'
+            ]
+        }
+    ]
+    answer = prompt(submiting)
+    choiced = answer['option']
+    if choiced == 'No':
+        user_main_page()
+    elif choiced == 'Yes':
+        if check_username_validity(new_username):
+            global logged_user_phoneNumber
+            new_info = ""
+            with open("information.txt", "r") as infoFile:
+                csv_reader = csv.reader(infoFile)
+                for line in csv_reader:
+                    if line[1] != logged_user_phoneNumber:
+                        new_info += ','.join(line) + "\n"
+                    elif line[1] == logged_user_phoneNumber:
+                        new_info += line[0] + "," + line[1] + "," + new_username + "," + line[3] + "\n"
+            with open("information.txt", "w") as newInfoFile:
+                newInfoFile.write(new_info)
+            print("[bold green]username changed successfully. redirecting... ")
+            time.sleep(3)
+            user_main_page()
+        else:
+            print('[bold red]this username is invalid . try another')
+            user_change_username()
+                
+
+# give user options for change username or password
+def user_change_info():
+    clear_terminal()
+    console = Console()
+    console.rule("[bold italic yellow1]    Change information   ")
+    options = [
+        {
+            'type': 'list',
+            'name': 'option',
+            'message': 'which info you want to change ? ',
+            'choices': ['Username', 'Password', '<- back']
+        }
+    ]
+    answers = prompt(options)
+    choice = answers['option']
+    if choice == 'Username':
+        user_change_username()
+    elif choice == 'Password':
+        user_change_password()
+    else:
+        user_main_page()
+
+
+# add a new time for reserve into free times file
+def add_time_to_free_times(new_time):
+    with open("freeTimes.txt", "a") as freeTimes:
+        freeTimes.write("\n" + new_time)
+
+
+# execute when user wants to cancel a reserve ; delete time from reserves and add it again to free times
+def user_cancel_reserve():
+    global logged_user_phoneNumber
+    user_times = []
+    with open("reservedTimes.txt", "r") as timesFile:
+        csv_reader = csv.reader(timesFile)
+        next(csv_reader)
+        for line in csv_reader:
+            if line[0] == logged_user_phoneNumber:
+                user_times.append(line[1] + "," + line[2] + "," + line[3])
+    user_times.append("<- back")
+    options = [
+        {
+            'type': 'list',
+            'name': 'option',
+            'message': 'which time you want to cancel ? ',
+            'choices': user_times
+        }
+    ]
+    answers = prompt(options)
+    choice = answers['option']
+    if choice == "<- back":
+        user_main_page()
+    else:
+        print("your choice is : ", choice)
+        submiting = [
+            {
+                'type': 'list',
+                'name': 'option',
+                'message': 'are you sure about canceling this time ? ',
+                'choices': [
+                    'Yes',
+                    'No'
+                ]
+            }
+        ]
+        answer = prompt(submiting)
+        choiced = answer['option']
+        if choiced == 'No':
+            time.sleep(3)
+            user_reserved_times()
+        elif choiced == 'Yes':
+            with open("reservedTimes.txt", "r") as freeTimes:
+                lines = freeTimes.readlines()
+            with open("reservedTimes.txt", "w") as freeTimes:
+                for line in lines:
+                    if line.strip("\n") != choice:
+                        freeTimes.write(line)
+            add_time_to_free_times(choice)
+            print("Reserve Canceled.  redirecting...")
+            time.sleep(3)
+            user_main_page()
+
+
+# shows users reserved times and give her/him option for cancel a reserve
+def user_reserved_times():
+    clear_terminal()
+    global logged_user_phoneNumber
+    my_times_tabel = Table(expand=True, style="cyan", box=box.DOUBLE_EDGE)
+    my_times_tabel.add_column("Date", justify="center", style="yellow2")
+    my_times_tabel.add_column("Time", justify="center", style="green1")
+    my_times_tabel.add_column("Fee", justify="center", style="orchid1")
+    with open("reservedTimes.txt", "r") as reserves:
+        csv_reader = csv.reader(reserves)
+        for line in csv_reader:
+            if line[0] == logged_user_phoneNumber:
+                my_times_tabel.add_row(line[1], line[2], line[3])
+    console = Console()
+    console.print(my_times_tabel)
+    options = [
+        {
+            'type': 'list',
+            'name': 'option',
+            'message': '  ',
+            'choices': [
+                'cancel a reserve',
+                '<- back',
+            ]
+        }
+    ]
+    answers = prompt(options)
+    choice = answers['option']
+    if choice == 'cancel a reserve':
+        user_cancel_reserve()
+    elif choice == '<- back':
+        user_main_page()
 
 
 # this method gets a time and delete it from free times  ( when a time get reserved )
@@ -101,7 +291,7 @@ def user_reserving_time():
         answer = prompt(submiting)
         choiced = answer['option']
         if choiced == 'No':
-            time.sleep(20)
+            time.sleep(3)
             user_available_times()
         elif choiced == 'Yes':
             global logged_user_phoneNumber
@@ -110,7 +300,7 @@ def user_reserving_time():
                 reserved_times.write(new_line)
             print("[bold green] Time reserved!..")
             delete_time_from_file(choice)
-            time.sleep(20)
+            time.sleep(3)
             user_main_page()
 
 
@@ -184,7 +374,7 @@ def user_main_page():
 # gets user inputs for sign up and return them
 def signup_page_inputs():
     console = Console()
-    console.rule("[bold italic royal_blue1]    Sign up    ")
+    console.rule("[bold italic yellow1]    Sign up    ")
     print("[italic bold turquoise2] Please enter your information")
     fields = [
         {
@@ -239,7 +429,7 @@ def user_login(username, password):
 # this method will execute when user choose login from first menu
 def login_page():
     console = Console()
-    console.rule("[bold italic royal_blue1]    Login    ")
+    console.rule("[bold italic yellow1]    Login    ")
     admin_username = "4[)m1n$P49[-"
     admin_password = "?4$$4[)JVI1^/"
     fields = [
