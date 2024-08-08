@@ -15,6 +15,7 @@ def clear_terminal():
         os.system("clear")
 
 
+# this to vars will use for save logged-in user's reserve and show her/him its own reserves
 logged_user_phoneNumber = ""
 logged_user_fullName = ""
 
@@ -57,9 +58,120 @@ def find_user_info(username):
                 logged_user_phoneNumber = line[1]
 
 
+# checks if specific date and time exist in free times or not , if exist return false , and if isn't return true
+def free_times_check(new_date, new_time):
+    with open("freeTimes.txt", "r") as freeTimes:
+        csv_reader = csv.reader(freeTimes)
+        for line in csv_reader:
+            if line[0] == new_date and line[1] == new_time:
+                return False
+    return True
+
+
+# checks if specific date and time exist in reserved times or not , if exist return false , and if isn't return true
+def reserved_times_check(new_date, new_time):
+    with open("reservedTimes.txt", "r") as reservedTimes:
+        csv_reader = csv.reader(reservedTimes)
+        for line in csv_reader:
+            if line[1] == new_date and line[2] == new_time:
+                return False
+    return True
+
+
+# show reserved times in table
+def admin_view_reserves():
+    clear_terminal()
+    reserved_times_tabel = Table(expand=True, style="cyan", box=box.DOUBLE_EDGE)
+    reserved_times_tabel.add_column("Phone Number", justify="center", style="grey78")
+    reserved_times_tabel.add_column("Date", justify="center", style="yellow2")
+    reserved_times_tabel.add_column("Time", justify="center", style="green1")
+    reserved_times_tabel.add_column("Fee", justify="center", style="orchid1")
+    with open("reservedTimes.txt", "r") as reserves:
+        csv_reader = csv.reader(reserves)
+        next(csv_reader)
+        for line in csv_reader:
+            reserved_times_tabel.add_row(line[0], line[1], line[2], line[3])
+    console = Console()
+    console.print(reserved_times_tabel)
+    options = [
+        {
+            'type': 'list',
+            'name': 'option',
+            'message': '  ',
+            'choices': [
+                '<- back',
+            ]
+        }
+    ]
+    answers = prompt(options)
+    choice = answers['option']
+    if choice == '<- back':
+        admin_main_page()
+
+
+# gets new date time and price from admin and if wasn't already exist , add them into free times
+def admin_add_reserve():
+    console = Console()
+    console.rule("[bold italic yellow1]    Add time for Reserve   ")
+    new_date = console.input("[italic violet] Enter new reservation date (dd/mm/yyyy) : ")
+    new_time = console.input("[italic violet] Enter new reservation hour (hh:mm) : ")
+    new_price = console.input("[italic violet] Enter new reservation price : ")
+    submiting = [
+        {
+            'type': 'list',
+            'name': 'option',
+            'message': 'are you sure you want to add this date and time ? ',
+            'choices': [
+                'Yes',
+                'No'
+            ]
+        }
+    ]
+    answer = prompt(submiting)
+    choiced = answer['option']
+    if choiced == 'No':
+        admin_main_page()
+    else:
+        if free_times_check(new_date, new_time) and reserved_times_check(new_date, new_time):
+            with open("freeTimes.txt", "a") as freeTimes:
+                freeTimes.write(new_date + "," + new_time + "," + new_price + "\n")
+            print("[bold green]New reserve time add successfully... redirecting...")
+            time.sleep(3)
+            admin_main_page()
+        else:
+            print("[bold red]this date and time already exist. try another one")
+            admin_add_reserve()
+
+
 # this method will execute when admin logged in
 def admin_main_page():
-    pass
+    clear_terminal()
+    admin_home_page = Table(expand=True, style="cyan", box=box.DOUBLE_EDGE)
+    admin_home_page.add_column(f"WELCOME ADMIN", justify="center", style="magenta3")
+    admin_home_page.add_row("Choose one of the options below")
+    console = Console()
+    console.print(admin_home_page)
+    options = [
+        {
+            'type': 'list',
+            'name': 'option',
+            'message': 'Please choose an option:',
+            'choices': [
+                'Add reserve time',
+                'View reserves',
+                'Exit',
+            ]
+        }
+    ]
+    answers = prompt(options)
+    choice = answers['option']
+    if choice == 'Add reserve time':
+        clear_terminal()
+        admin_add_reserve()
+    elif choice == 'View reserves':
+        admin_view_reserves()
+    elif choice == 'Exit':
+        print("Exiting...")
 
 
 # if user wants to change password this method runs and change users password in file
@@ -125,7 +237,7 @@ def user_change_username():
         else:
             print('[bold red]this username is invalid . try another')
             user_change_username()
-                
+
 
 # give user options for change username or password
 def user_change_info():
@@ -453,8 +565,9 @@ def login_page():
             find_user_info(user_inputs["username"])
             user_main_page()
         else:
-            # add options here
-            print("not found")
+            print("[bold red]User not found...try again[/]")
+            time.sleep(2)
+            main()
 
 
 # this is the method for first list options that user will see when run the code and can choose login / sign up or exit
